@@ -1,8 +1,12 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useTranslation } from '@/app/context/LanguageContext'
 import { Calendar, Music, MapPin, Loader2 } from 'lucide-react'
+import { useJsApiLoader, Autocomplete } from '@react-google-maps/api'
+
+// Vi definerer hvilke Google-biblioteker vi trenger
+const libraries: ("places")[] = ["places"];
 
 interface AddConcertFormProps {
   onAdded: () => void;
@@ -12,165 +16,138 @@ interface AddConcertFormProps {
 export default function AddConcertForm({ onAdded, initialData }: AddConcertFormProps) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false)
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   
   // States for skjemaet
   const [artistName, setArtistName] = useState(initialData?.artist_name || '')
   const [venueName, setVenueName] = useState(initialData?.venue_name || '')
   const [concertDate, setConcertDate] = useState(initialData?.concert_date || '')
+  const [address, setAddress] = useState(initialData?.address || '')
+  const [coordinates, setCoordinates] = useState({
+    lat: initialData?.lat || 0,
+    lng: initialData?.lng || 0
+  })
+
+  // Laster Google Maps skriptet
+  const { isLoaded } = useJsApiLoader({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
+    libraries: libraries,
+  })
+
+  const onPlaceChanged = () => {
+    if (autocompleteRef.current !== null) {
+      const place = autocompleteRef.current.getPlace();
+      const loc = place.geometry?.location;
+      
+      setVenueName(place.name || '');
+      setAddress(place.formatted_address || '');
+      if (loc) {
+        setCoordinates({
+          lat: loc.lat(),
+          lng: loc.lng()
+        });
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     
     try {
-      // DATA-OBJEKT: Her bruker vi de nøyaktige kolonnenavnene fra din Supabase-tabell
       const concertData = {
         artist_name: artistName,
         venue_name: venueName,
         concert_date: concertDate,
-        address: venueName, // Bruker venueName som adresse inntil Google Maps autofyll virker
-        lat: initialData?.lat || 0,
-        lng: initialData?.lng || 0,
-        // user_id er utelatt fordi vi gjorde den "nullable" i Supabase
+        address: address || venueName,
+        lat: coordinates.lat,
+        lng: coordinates.lng,
       }
 
-      console.log("Forsøker å sende følgende til Supabase:", concertData);
-
       let result;
-
       if (initialData?.id) {
-        // OPPDATER eksisterende
-        result = await supabase
-          .from('concerts')
-          .update(concertData)
-          .eq('id', initialData.id);
+        result = await supabase.from('concerts').update(concertData).eq('id', initialData.id);
       } else {
-        // LEGG TIL ny
-        result = await supabase
-          .from('concerts')
-          .insert([concertData]);
+        result = await supabase.from('concerts').insert([concertData]);
       }
 
       if (result.error) {
-        console.error("SUPABASE FEILMELDING:", result.error.message);
-        alert("Kunne ikke lagre i databasen: " + result.error.message);
+        alert("Feil: " + result.error.message);
       } else {
-        console.log("Lagring vellykket!");
-        alert(initialData ? "Endring lagret!" : "Konsert lagt til!");
+        alert("Lagret!");
         onAdded();
       }
     } catch (err) {
-      console.error("Uventet feil:", err);
-      alert("En uventet feil oppstod. Se konsollen (F12).");
+      console.error(err);
     } finally {
       setLoading(false);
     }
   }
 
-  // DIAGNOSE-SJEKK: Hjelper oss å se om Vercel har med seg nøklene dine
-  if (typeof window !== 'undefined') {
-    console.log("--- VERCEL DIAGNOSE ---");
-    console.log("Google Maps Key:", !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY);
-    console.log("Supabase URL:", !!process.env.NEXT_PUBLIC_SUPABASE_URL);
-    console.log("Supabase Key:", !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-    console.log("------------------------");
-  }
-
   return (
-    <div className="max-w-2xl mx-auto bg-slate-900 p-8 rounded-3xl border border-white/5 shadow-2xl animate-in zoom-in-95 duration-300">
+    <div className="max-w-2xl mx-auto bg-slate-900 p-8 rounded-3xl border border-white/5 shadow-2xl">
       <h2 className="text-2xl font-black italic uppercase mb-8 text-white tracking-tighter">
         {initialData ? t.forms.edit_title : t.forms.add_title}
       </h2>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        
         {/* ARTIST */}
         <div className="group">
-          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">
-            {t.forms.artist_label}
-          </label>
-          <div className="relative">
-            <input
-              type="text"
-              value={artistName}
-              onChange={(e) => setArtistName(e.target.value)}
-              placeholder={t.forms.artist_placeholder}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 pr-12 text-white focus:border-fuchsia-500 outline-none transition-all"
-              required
-            />
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-600 group-focus-within:text-fuchsia-500 transition-colors">
-              <Music size={18} />
-            </div>
-          </div>
+          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">Artist</label>
+          <input
+            type="text"
+            value={artistName}
+            onChange={(e) => setArtistName(e.target.value)}
+            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-fuchsia-500"
+            required
+          />
         </div>
 
-        {/* VENUE / STED */}
+        {/* VENUE / STED (Nå med Google Autocomplete) */}
         <div className="group">
-          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">
-            {t.forms.venue_label}
-          </label>
+          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">Sted</label>
           <div className="relative">
-            <input
-              type="text"
-              value={venueName}
-              onChange={(e) => setVenueName(e.target.value)}
-              placeholder={t.forms.venue_placeholder}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 pr-12 text-white focus:border-fuchsia-500 outline-none transition-all"
-              required
-            />
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-600 group-focus-within:text-fuchsia-500 transition-colors">
-              <MapPin size={18} />
-            </div>
+            {isLoaded ? (
+              <Autocomplete
+                onLoad={(ref) => (autocompleteRef.current = ref)}
+                onPlaceChanged={onPlaceChanged}
+              >
+                <input
+                  type="text"
+                  value={venueName}
+                  onChange={(e) => setVenueName(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-fuchsia-500"
+                  placeholder="Søk etter konsertsted..."
+                  required
+                />
+              </Autocomplete>
+            ) : (
+              <input disabled className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white opacity-50" value="Laster kart..." />
+            )}
+            <MapPin className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
           </div>
         </div>
 
         {/* DATE */}
         <div className="group">
-          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">
-            {t.forms.date_label}
-          </label>
-          <div className="relative">
-            <input
-              type="date"
-              value={concertDate}
-              onChange={(e) => setConcertDate(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 pr-12 text-white 
-                         focus:border-fuchsia-500 outline-none transition-all 
-                         [color-scheme:dark]
-                         [&::-webkit-calendar-picker-indicator]:opacity-0
-                         [&::-webkit-calendar-picker-indicator]:absolute
-                         [&::-webkit-calendar-picker-indicator]:right-3
-                         [&::-webkit-calendar-picker-indicator]:w-8
-                         [&::-webkit-calendar-picker-indicator]:h-8
-                         [&::-webkit-calendar-picker-indicator]:cursor-pointer
-                         [&::-webkit-calendar-picker-indicator]:z-10"
-              required
-            />
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-fuchsia-500 group-focus-within:text-fuchsia-400 transition-colors">
-              <Calendar size={18} />
-            </div>
-          </div>
+          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">Dato</label>
+          <input
+            type="date"
+            value={concertDate}
+            onChange={(e) => setConcertDate(e.target.value)}
+            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-fuchsia-500 [color-scheme:dark]"
+            required
+          />
         </div>
 
-        {/* BUTTONS */}
-        <div className="pt-4 flex flex-col sm:flex-row gap-4">
-          <button
-            type="button"
-            onClick={onAdded}
-            className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-black uppercase tracking-widest p-4 rounded-xl transition-all"
-          >
-            {t.forms.cancel}
-          </button>
-          
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex-[2] bg-fuchsia-600 hover:bg-fuchsia-500 disabled:opacity-50 text-white font-black uppercase tracking-widest p-4 rounded-xl transition-all shadow-lg shadow-fuchsia-500/20 flex items-center justify-center gap-2"
-          >
-            {loading && <Loader2 size={18} className="animate-spin" />}
-            {loading ? t.forms.loading : (initialData ? t.forms.submit_edit : t.forms.submit_add)}
-          </button>
-        </div>
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-black uppercase p-4 rounded-xl transition-all flex items-center justify-center gap-2"
+        >
+          {loading && <Loader2 size={18} className="animate-spin" />}
+          {initialData ? "Lagre endringer" : "Legg til konsert"}
+        </button>
       </form>
     </div>
   )
