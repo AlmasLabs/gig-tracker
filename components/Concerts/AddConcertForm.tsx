@@ -24,7 +24,10 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
   const [concertDate, setConcertDate] = useState(initialData?.concert_date || '')
   const [address, setAddress] = useState(initialData?.address || '')
   const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(initialData?.image_url || null)
+  
+  // Bruker event_img_url fra initialData hvis det eksisterer
+  const [imagePreview, setImagePreview] = useState<string | null>(initialData?.event_img_url || null)
+  
   const [coordinates, setCoordinates] = useState({
     lat: initialData?.lat || 0,
     lng: initialData?.lng || 0
@@ -64,12 +67,9 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
     }
   }
 
-  // OPTIMALISERT: uploadImage som fjerner risiko for 400 Bad Request
   const uploadImage = async (file: File) => {
     const fileExt = file.name.split('.').pop()
     const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
-    
-    // filePath skal kun være filnavnet, siden vi spesifiserer bucket i .from()
     const filePath = fileName 
 
     const { data, error: uploadError } = await supabase.storage
@@ -84,7 +84,6 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
       throw uploadError;
     }
 
-    // Henter den offentlige URL-en
     const { data: urlData } = supabase.storage
       .from('concert-photos')
       .getPublicUrl(filePath)
@@ -103,6 +102,7 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
         imageUrl = await uploadImage(imageFile)
       }
 
+      // OPPDATERT: Bruker event_img_url for å matche databasen din
       const concertData = {
         artist_name: artistName,
         venue_name: venueName,
@@ -110,11 +110,11 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
         address: address || venueName,
         lat: coordinates.lat,
         lng: coordinates.lng,
-        image_url: imageUrl,
+        event_img_url: imageUrl, 
         user_id: userId,
       }
 
-      console.log("Lagrer konsert med disse dataene:", concertData);
+      console.log("Sender data til Supabase:", concertData);
 
       let result;
       if (initialData?.id) {
