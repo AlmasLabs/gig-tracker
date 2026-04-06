@@ -67,15 +67,15 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
   const uploadImage = async (file: File) => {
     const fileExt = file.name.split('.').pop()
     const fileName = `${Math.random()}.${fileExt}`
-    const filePath = `concert-images/${fileName}`
+    const filePath = `concert-photos/${fileName}`
 
     const { error: uploadError } = await supabase.storage
-      .from('concert-images')
+      .from('concert-photos')
       .upload(filePath, file)
 
     if (uploadError) throw uploadError
 
-    const { data } = supabase.storage.from('concert-images').getPublicUrl(filePath)
+    const { data } = supabase.storage.from('concert-photos').getPublicUrl(filePath)
     return data.publicUrl
   }
 
