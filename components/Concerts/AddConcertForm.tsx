@@ -25,8 +25,13 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
   const [address, setAddress] = useState(initialData?.address || '')
   const [imageFile, setImageFile] = useState<File | null>(null)
   
-  // Bruker event_img_url fra initialData hvis det eksisterer
-  const [imagePreview, setImagePreview] = useState<string | null>(initialData?.event_img_url || null)
+  // Håndterer både array og streng fra initialData
+  const [imagePreview, setImagePreview] = useState<string | null>(() => {
+    if (!initialData?.event_img_url) return null;
+    return Array.isArray(initialData.event_img_url) 
+      ? initialData.event_img_url[0] 
+      : initialData.event_img_url;
+  })
   
   const [coordinates, setCoordinates] = useState({
     lat: initialData?.lat || 0,
@@ -102,7 +107,8 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
         imageUrl = await uploadImage(imageFile)
       }
 
-      // OPPDATERT: Bruker event_img_url for å matche databasen din
+      // KONSERTDATA: Her sender vi imageUrl som et ARRAY [imageUrl] 
+      // for å matche databasens "Array literal" forventning
       const concertData = {
         artist_name: artistName,
         venue_name: venueName,
@@ -110,11 +116,11 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
         address: address || venueName,
         lat: coordinates.lat,
         lng: coordinates.lng,
-        event_img_url: imageUrl, 
+        event_img_url: imageUrl ? [imageUrl] : null, // FIKS: Pakket inn i klammer
         user_id: userId,
       }
 
-      console.log("Sender data til Supabase:", concertData);
+      console.log("Sender data til Supabase (med Array-fiks):", concertData);
 
       let result;
       if (initialData?.id) {
