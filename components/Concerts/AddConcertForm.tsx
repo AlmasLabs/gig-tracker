@@ -28,8 +28,9 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
     lng: initialData?.lng || 0
   })
 
-  // Laster Google Maps skriptet
+  // Laster Google Maps skriptet med en fast ID for å unngå Loader-konflikter
   const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
     libraries: libraries,
   })
@@ -39,8 +40,9 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
       const place = autocompleteRef.current.getPlace();
       const loc = place.geometry?.location;
       
-      setVenueName(place.name || '');
-      setAddress(place.formatted_address || '');
+      if (place.name) setVenueName(place.name);
+      if (place.formatted_address) setAddress(place.formatted_address);
+      
       if (loc) {
         setCoordinates({
           lat: loc.lat(),
@@ -103,7 +105,7 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
           />
         </div>
 
-        {/* VENUE / STED (Nå med Google Autocomplete) */}
+        {/* VENUE / STED */}
         <div className="group">
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">Sted</label>
           <div className="relative">
