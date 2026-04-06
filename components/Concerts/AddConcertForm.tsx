@@ -64,19 +64,29 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
     }
   }
 
+  // FIKSET: uploadImage-funksjon som unngår UUID-feil
   const uploadImage = async (file: File) => {
     const fileExt = file.name.split('.').pop()
     const fileName = `${Math.random()}.${fileExt}`
-    const filePath = `concert-photos/${fileName}`
+    
+    // filePath skal bare være selve filnavnet når vi bruker .from('concert-photos')
+    const filePath = fileName 
 
-    const { error: uploadError } = await supabase.storage
+    const { data, error: uploadError } = await supabase.storage
       .from('concert-photos')
-      .upload(filePath, file)
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      })
 
     if (uploadError) throw uploadError
 
-    const { data } = supabase.storage.from('concert-photos').getPublicUrl(filePath)
-    return data.publicUrl
+    // Hent den offentlige URL-en fra riktig bøtte
+    const { data: urlData } = supabase.storage
+      .from('concert-photos')
+      .getPublicUrl(filePath)
+
+    return urlData.publicUrl
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
