@@ -1,6 +1,6 @@
 'use client'
 import { Trophy, MapPin, Activity } from 'lucide-react'
-import { useTranslation } from '@/app/context/LanguageContext'
+import { useTranslation } from "@/app/context/LanguageContext";
 
 interface StatsViewProps {
   concerts: any[]
@@ -160,7 +160,7 @@ export default function StatsView({ concerts }: StatsViewProps) {
           {sortedYears.map(([year, count]) => (
             <div key={year} className="flex-shrink-0 flex flex-col items-center bg-slate-950/60 border border-white/5 rounded-2xl p-6 min-w-[100px] hover:border-fuchsia-500/50 transition-all">
               <span className="text-xs font-black text-slate-500 mb-2 uppercase tracking-widest">{year}</span>
-              <span className="text-4xl font-black italic text-fuchsia-500 leading-none tracking-tighter">{count}</span>
+              <span className="text-4xl font-black italic text-fuchsia-500 leading-none tracking-tighter">{String(count)}</span>
               <span className="text-[8px] font-bold text-slate-600 mt-2 uppercase">
                 {t.stats_view.gigs_unit}
               </span>
