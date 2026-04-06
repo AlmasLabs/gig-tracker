@@ -64,12 +64,12 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
     }
   }
 
-  // FIKSET: uploadImage-funksjon som unngår UUID-feil
+  // OPTIMALISERT: uploadImage som fjerner risiko for 400 Bad Request
   const uploadImage = async (file: File) => {
     const fileExt = file.name.split('.').pop()
-    const fileName = `${Math.random()}.${fileExt}`
+    const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
     
-    // filePath skal bare være selve filnavnet når vi bruker .from('concert-photos')
+    // filePath skal kun være filnavnet, siden vi spesifiserer bucket i .from()
     const filePath = fileName 
 
     const { data, error: uploadError } = await supabase.storage
@@ -79,9 +79,12 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
         upsert: false
       })
 
-    if (uploadError) throw uploadError
+    if (uploadError) {
+      console.error("Storage Error Detail:", uploadError);
+      throw uploadError;
+    }
 
-    // Hent den offentlige URL-en fra riktig bøtte
+    // Henter den offentlige URL-en
     const { data: urlData } = supabase.storage
       .from('concert-photos')
       .getPublicUrl(filePath)
@@ -111,6 +114,8 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
         user_id: userId,
       }
 
+      console.log("Lagrer konsert med disse dataene:", concertData);
+
       let result;
       if (initialData?.id) {
         result = await supabase.from('concerts').update(concertData).eq('id', initialData.id);
@@ -120,10 +125,11 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
 
       if (result.error) throw result.error
       
-      alert("Suksess! Alt er lagret.");
+      alert("Suksess! Konserten er lagret.");
       onAdded();
     } catch (err: any) {
-      alert("Feil: " + err.message);
+      console.error("Submit error:", err);
+      alert("Kunne ikke lagre: " + (err.message || "Ukjent feil"));
     } finally {
       setLoading(false);
     }
@@ -139,14 +145,14 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
         
         {/* BILDEOPPLASTING */}
         <div className="group">
-          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">Bilde</label>
-          <div className="relative h-40 w-full bg-slate-950 border-2 border-dashed border-slate-800 rounded-2xl overflow-hidden group-hover:border-fuchsia-500/50 transition-all">
+          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2 italic">Bilde / Poster</label>
+          <div className="relative h-48 w-full bg-slate-950 border-2 border-dashed border-slate-800 rounded-2xl overflow-hidden hover:border-fuchsia-500/50 transition-all cursor-pointer">
             {imagePreview ? (
               <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-slate-500">
                 <ImageIcon size={32} className="mb-2" />
-                <span className="text-xs uppercase font-bold tracking-widest">Last opp bilde</span>
+                <span className="text-xs uppercase font-black tracking-widest italic">Klikk for å laste opp</span>
               </div>
             )}
             <input 
@@ -165,7 +171,7 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
             type="text"
             value={artistName}
             onChange={(e) => setArtistName(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-fuchsia-500"
+            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-fuchsia-500 transition-colors"
             required
           />
         </div>
@@ -181,12 +187,12 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
                   value={venueName}
                   onChange={(e) => setVenueName(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-fuchsia-500"
-                  placeholder="Søk sted..."
+                  placeholder="Søk etter scene eller by..."
                   required
                 />
               </Autocomplete>
             ) : (
-              <input disabled className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white opacity-50" value="Laster..." />
+              <div className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-slate-500 animate-pulse">Laster Google Maps...</div>
             )}
             <MapPin className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
           </div>
@@ -207,10 +213,10 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-black uppercase p-4 rounded-xl transition-all flex items-center justify-center gap-2"
+          className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-black uppercase p-5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-fuchsia-500/20 active:scale-[0.98]"
         >
           {loading ? <Loader2 className="animate-spin" /> : <Upload size={18} />}
-          {initialData ? "Lagre" : "Publiser konsert"}
+          {initialData ? "Oppdater Konsert" : "Publiser Konsert"}
         </button>
       </form>
     </div>
