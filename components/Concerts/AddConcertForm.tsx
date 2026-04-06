@@ -1,11 +1,10 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useTranslation } from '@/app/context/LanguageContext'
 import { Calendar, Music, MapPin, Loader2 } from 'lucide-react'
 import { useJsApiLoader, Autocomplete } from '@react-google-maps/api'
 
-// Vi definerer hvilke Google-biblioteker vi trenger
 const libraries: ("places")[] = ["places"];
 
 interface AddConcertFormProps {
@@ -16,9 +15,18 @@ interface AddConcertFormProps {
 export default function AddConcertForm({ onAdded, initialData }: AddConcertFormProps) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null) // State for å lagre bruker-ID
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   
-  // States for skjemaet
+  // Hent innlogget bruker når komponenten starter
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+    };
+    getUser();
+  }, []);
+
   const [artistName, setArtistName] = useState(initialData?.artist_name || '')
   const [venueName, setVenueName] = useState(initialData?.venue_name || '')
   const [concertDate, setConcertDate] = useState(initialData?.concert_date || '')
@@ -28,7 +36,6 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
     lng: initialData?.lng || 0
   })
 
-  // Laster Google Maps skriptet med en fast ID for å unngå Loader-konflikter
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
@@ -39,15 +46,10 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
     if (autocompleteRef.current !== null) {
       const place = autocompleteRef.current.getPlace();
       const loc = place.geometry?.location;
-      
       if (place.name) setVenueName(place.name);
       if (place.formatted_address) setAddress(place.formatted_address);
-      
       if (loc) {
-        setCoordinates({
-          lat: loc.lat(),
-          lng: loc.lng()
-        });
+        setCoordinates({ lat: loc.lat(), lng: loc.lng() });
       }
     }
   };
@@ -64,6 +66,7 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
         address: address || venueName,
         lat: coordinates.lat,
         lng: coordinates.lng,
+        user_id: userId, // NÅ inkluderer vi bruker-ID igjen!
       }
 
       let result;
@@ -76,7 +79,7 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
       if (result.error) {
         alert("Feil: " + result.error.message);
       } else {
-        alert("Lagret!");
+        alert("Lagret med din bruker-ID!");
         onAdded();
       }
     } catch (err) {
@@ -86,6 +89,7 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
     }
   }
 
+  // Resten av return-koden forblir den samme som sist...
   return (
     <div className="max-w-2xl mx-auto bg-slate-900 p-8 rounded-3xl border border-white/5 shadow-2xl">
       <h2 className="text-2xl font-black italic uppercase mb-8 text-white tracking-tighter">
@@ -93,7 +97,6 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
       </h2>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* ARTIST */}
         <div className="group">
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">Artist</label>
           <input
@@ -105,15 +108,11 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
           />
         </div>
 
-        {/* VENUE / STED */}
         <div className="group">
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">Sted</label>
           <div className="relative">
             {isLoaded ? (
-              <Autocomplete
-                onLoad={(ref) => (autocompleteRef.current = ref)}
-                onPlaceChanged={onPlaceChanged}
-              >
+              <Autocomplete onLoad={(ref) => (autocompleteRef.current = ref)} onPlaceChanged={onPlaceChanged}>
                 <input
                   type="text"
                   value={venueName}
@@ -130,7 +129,6 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
           </div>
         </div>
 
-        {/* DATE */}
         <div className="group">
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">Dato</label>
           <input
