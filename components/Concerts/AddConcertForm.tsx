@@ -22,12 +22,55 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
     e.preventDefault()
     setLoading(true)
     
-    // Her legger du inn din eksisterende Supabase-logikk (insert/update)
-    // Etter suksess:
-    // alert(initialData ? t.forms.success_edit : t.forms.success_add)
-    
-    setLoading(false)
-    onAdded()
+    // Debug: Sjekker om Supabase-klienten er satt opp
+    console.log("Forsøker lagring til:", process.env.NEXT_PUBLIC_SUPABASE_URL);
+
+    try {
+      const concertData = {
+        artist_name: artistName,
+        venue_name: venueName,
+        concert_date: concertDate,
+      }
+
+      let result;
+
+      if (initialData?.id) {
+        // OPPDATER eksisterende
+        result = await supabase
+          .from('concerts')
+          .update(concertData)
+          .eq('id', initialData.id);
+      } else {
+        // LEGG TIL ny
+        result = await supabase
+          .from('concerts')
+          .insert([concertData]);
+      }
+
+      if (result.error) {
+        console.error("SUPABASE FEILMELDING:", result.error.message);
+        alert("Kunne ikke lagre i databasen: " + result.error.message);
+      } else {
+        console.log("Suksess!");
+        alert(initialData ? "Endring lagret!" : "Konsert lagt til!");
+        onAdded();
+      }
+    } catch (err) {
+      console.error("Uventet feil:", err);
+      alert("En uventet feil oppstod. Sjekk konsollen.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // DIAGNOSE-SJEKK: Denne vil kun vises i "Console" i nettleseren din (F12)
+  if (typeof window !== 'undefined') {
+    console.log("--- VERCEL DIAGNOSE ---");
+    console.log("Google Maps Key funnet:", !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY);
+    console.log("Supabase URL funnet:", !!process.env.NEXT_PUBLIC_SUPABASE_URL);
+    console.log("Supabase Key funnet:", !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+    console.log("URL i bruk:", process.env.NEXT_PUBLIC_SUPABASE_URL);
+    console.log("------------------------");
   }
 
   return (
@@ -79,44 +122,38 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
         </div>
 
         {/* DATE */}
-        {/* DATE */}
-{/* DATE */}
-<div className="group">
-  <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">
-    {t.forms.date_label}
-  </label>
-  <div className="relative">
-    <input
-      type="date"
-      value={concertDate}
-      onChange={(e) => setConcertDate(e.target.value)}
-      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 pr-12 text-white 
-                 focus:border-fuchsia-500 outline-none transition-all 
-                 [color-scheme:dark]
-                 /* Vi fjerner appearance-none og showPicker fra selve inputen */
-                 
-                 /* Vi gjør det innebygde ikonet usynlig, men lar det ligge KUN over vårt lilla ikon */
-                 [&::-webkit-calendar-picker-indicator]:opacity-0
-                 [&::-webkit-calendar-picker-indicator]:absolute
-                 [&::-webkit-calendar-picker-indicator]:right-3
-                 [&::-webkit-calendar-picker-indicator]:w-8
-                 [&::-webkit-calendar-picker-indicator]:h-8
-                 [&::-webkit-calendar-picker-indicator]:cursor-pointer
-                 [&::-webkit-calendar-picker-indicator]:z-10"
-      required
-    />
-    
-    {/* VÅRT LILLA IKON - Ligger nå "under" det usynlige, klikkbare området */}
-    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-fuchsia-500 group-focus-within:text-fuchsia-400 transition-colors">
-      <Calendar size={18} />
-    </div>
-  </div>
-</div>
+        <div className="group">
+          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">
+            {t.forms.date_label}
+          </label>
+          <div className="relative">
+            <input
+              type="date"
+              value={concertDate}
+              onChange={(e) => setConcertDate(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 pr-12 text-white 
+                         focus:border-fuchsia-500 outline-none transition-all 
+                         [color-scheme:dark]
+                         [&::-webkit-calendar-picker-indicator]:opacity-0
+                         [&::-webkit-calendar-picker-indicator]:absolute
+                         [&::-webkit-calendar-picker-indicator]:right-3
+                         [&::-webkit-calendar-picker-indicator]:w-8
+                         [&::-webkit-calendar-picker-indicator]:h-8
+                         [&::-webkit-calendar-picker-indicator]:cursor-pointer
+                         [&::-webkit-calendar-picker-indicator]:z-10"
+              required
+            />
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-fuchsia-500 group-focus-within:text-fuchsia-400 transition-colors">
+              <Calendar size={18} />
+            </div>
+          </div>
+        </div>
+
         {/* BUTTONS */}
         <div className="pt-4 flex flex-col sm:flex-row gap-4">
           <button
             type="button"
-            onClick={onAdded} // Eller en dedikert onCancel props
+            onClick={onAdded}
             className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-black uppercase tracking-widest p-4 rounded-xl transition-all"
           >
             {t.forms.cancel}
