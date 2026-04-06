@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useTranslation } from '@/app/context/LanguageContext'
-import { Calendar, Music, MapPin, Loader2 } from 'lucide-react'
+import { Calendar, Music, MapPin, Loader2, Image as ImageIcon, Upload } from 'lucide-react'
 import { useJsApiLoader, Autocomplete } from '@react-google-maps/api'
 
 const libraries: ("places")[] = ["places"];
@@ -15,10 +15,21 @@ interface AddConcertFormProps {
 export default function AddConcertForm({ onAdded, initialData }: AddConcertFormProps) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false)
-  const [userId, setUserId] = useState<string | null>(null) // State for å lagre bruker-ID
+  const [userId, setUserId] = useState<string | null>(null)
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   
-  // Hent innlogget bruker når komponenten starter
+  // States for skjemaet
+  const [artistName, setArtistName] = useState(initialData?.artist_name || '')
+  const [venueName, setVenueName] = useState(initialData?.venue_name || '')
+  const [concertDate, setConcertDate] = useState(initialData?.concert_date || '')
+  const [address, setAddress] = useState(initialData?.address || '')
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(initialData?.image_url || null)
+  const [coordinates, setCoordinates] = useState({
+    lat: initialData?.lat || 0,
+    lng: initialData?.lng || 0
+  })
+
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -26,15 +37,6 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
     };
     getUser();
   }, []);
-
-  const [artistName, setArtistName] = useState(initialData?.artist_name || '')
-  const [venueName, setVenueName] = useState(initialData?.venue_name || '')
-  const [concertDate, setConcertDate] = useState(initialData?.concert_date || '')
-  const [address, setAddress] = useState(initialData?.address || '')
-  const [coordinates, setCoordinates] = useState({
-    lat: initialData?.lat || 0,
-    lng: initialData?.lng || 0
-  })
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
@@ -54,11 +56,40 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
     }
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      setImageFile(file)
+      setImagePreview(URL.createObjectURL(file))
+    }
+  }
+
+  const uploadImage = async (file: File) => {
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${Math.random()}.${fileExt}`
+    const filePath = `concert-images/${fileName}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('concert-images')
+      .upload(filePath, file)
+
+    if (uploadError) throw uploadError
+
+    const { data } = supabase.storage.from('concert-images').getPublicUrl(filePath)
+    return data.publicUrl
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     
     try {
+      let imageUrl = imagePreview
+
+      if (imageFile) {
+        imageUrl = await uploadImage(imageFile)
+      }
+
       const concertData = {
         artist_name: artistName,
         venue_name: venueName,
@@ -66,7 +97,8 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
         address: address || venueName,
         lat: coordinates.lat,
         lng: coordinates.lng,
-        user_id: userId, // NÅ inkluderer vi bruker-ID igjen!
+        image_url: imageUrl,
+        user_id: userId,
       }
 
       let result;
@@ -76,20 +108,17 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
         result = await supabase.from('concerts').insert([concertData]);
       }
 
-      if (result.error) {
-        alert("Feil: " + result.error.message);
-      } else {
-        alert("Lagret med din bruker-ID!");
-        onAdded();
-      }
-    } catch (err) {
-      console.error(err);
+      if (result.error) throw result.error
+      
+      alert("Suksess! Alt er lagret.");
+      onAdded();
+    } catch (err: any) {
+      alert("Feil: " + err.message);
     } finally {
       setLoading(false);
     }
   }
 
-  // Resten av return-koden forblir den samme som sist...
   return (
     <div className="max-w-2xl mx-auto bg-slate-900 p-8 rounded-3xl border border-white/5 shadow-2xl">
       <h2 className="text-2xl font-black italic uppercase mb-8 text-white tracking-tighter">
@@ -97,6 +126,29 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
       </h2>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        
+        {/* BILDEOPPLASTING */}
+        <div className="group">
+          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">Bilde</label>
+          <div className="relative h-40 w-full bg-slate-950 border-2 border-dashed border-slate-800 rounded-2xl overflow-hidden group-hover:border-fuchsia-500/50 transition-all">
+            {imagePreview ? (
+              <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-slate-500">
+                <ImageIcon size={32} className="mb-2" />
+                <span className="text-xs uppercase font-bold tracking-widest">Last opp bilde</span>
+              </div>
+            )}
+            <input 
+              type="file" 
+              accept="image/*" 
+              onChange={handleImageChange}
+              className="absolute inset-0 opacity-0 cursor-pointer" 
+            />
+          </div>
+        </div>
+
+        {/* ARTIST */}
         <div className="group">
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">Artist</label>
           <input
@@ -108,6 +160,7 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
           />
         </div>
 
+        {/* STED */}
         <div className="group">
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">Sted</label>
           <div className="relative">
@@ -118,17 +171,18 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
                   value={venueName}
                   onChange={(e) => setVenueName(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-fuchsia-500"
-                  placeholder="Søk etter konsertsted..."
+                  placeholder="Søk sted..."
                   required
                 />
               </Autocomplete>
             ) : (
-              <input disabled className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white opacity-50" value="Laster kart..." />
+              <input disabled className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white opacity-50" value="Laster..." />
             )}
             <MapPin className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
           </div>
         </div>
 
+        {/* DATO */}
         <div className="group">
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">Dato</label>
           <input
@@ -145,8 +199,8 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
           disabled={loading}
           className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-black uppercase p-4 rounded-xl transition-all flex items-center justify-center gap-2"
         >
-          {loading && <Loader2 size={18} className="animate-spin" />}
-          {initialData ? "Lagre endringer" : "Legg til konsert"}
+          {loading ? <Loader2 className="animate-spin" /> : <Upload size={18} />}
+          {initialData ? "Lagre" : "Publiser konsert"}
         </button>
       </form>
     </div>
