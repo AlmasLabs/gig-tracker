@@ -22,15 +22,19 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
     e.preventDefault()
     setLoading(true)
     
-    // Debug: Sjekker om Supabase-klienten er satt opp
-    console.log("Forsøker lagring til:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-
     try {
+      // DATA-OBJEKT: Her bruker vi de nøyaktige kolonnenavnene fra din Supabase-tabell
       const concertData = {
         artist_name: artistName,
         venue_name: venueName,
         concert_date: concertDate,
+        address: venueName, // Bruker venueName som adresse inntil Google Maps autofyll virker
+        lat: initialData?.lat || 0,
+        lng: initialData?.lng || 0,
+        // user_id er utelatt fordi vi gjorde den "nullable" i Supabase
       }
+
+      console.log("Forsøker å sende følgende til Supabase:", concertData);
 
       let result;
 
@@ -51,25 +55,24 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
         console.error("SUPABASE FEILMELDING:", result.error.message);
         alert("Kunne ikke lagre i databasen: " + result.error.message);
       } else {
-        console.log("Suksess!");
+        console.log("Lagring vellykket!");
         alert(initialData ? "Endring lagret!" : "Konsert lagt til!");
         onAdded();
       }
     } catch (err) {
       console.error("Uventet feil:", err);
-      alert("En uventet feil oppstod. Sjekk konsollen.");
+      alert("En uventet feil oppstod. Se konsollen (F12).");
     } finally {
       setLoading(false);
     }
   }
 
-  // DIAGNOSE-SJEKK: Denne vil kun vises i "Console" i nettleseren din (F12)
+  // DIAGNOSE-SJEKK: Hjelper oss å se om Vercel har med seg nøklene dine
   if (typeof window !== 'undefined') {
     console.log("--- VERCEL DIAGNOSE ---");
-    console.log("Google Maps Key funnet:", !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY);
-    console.log("Supabase URL funnet:", !!process.env.NEXT_PUBLIC_SUPABASE_URL);
-    console.log("Supabase Key funnet:", !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-    console.log("URL i bruk:", process.env.NEXT_PUBLIC_SUPABASE_URL);
+    console.log("Google Maps Key:", !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY);
+    console.log("Supabase URL:", !!process.env.NEXT_PUBLIC_SUPABASE_URL);
+    console.log("Supabase Key:", !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
     console.log("------------------------");
   }
 
@@ -101,7 +104,7 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
           </div>
         </div>
 
-        {/* VENUE */}
+        {/* VENUE / STED */}
         <div className="group">
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">
             {t.forms.venue_label}
