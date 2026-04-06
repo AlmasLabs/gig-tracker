@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { GoogleMap, MarkerF, InfoWindowF } from '@react-google-maps/api'
 import { Calendar, MapPin, ImageIcon } from 'lucide-react'
-import ImageModal from './ImageModal' // Husk å importere denne!
+import ImageModal from '../Concerts/ImageModal'
 
 const containerStyle = { width: '100%', height: '100%', borderRadius: '12px' }
 const center = { lat: 59.91, lng: 10.75 }
