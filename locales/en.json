@@ -1,0 +1,75 @@
+{
+  "common": {
+    "loading": "LOADING...",
+    "logout": "Log out",
+    "logout_confirm": "Are you sure you want to log out?",
+    "authenticated": "Authenticated",
+    "unknown_artist": "Unknown Artist",
+    "unknown_venue": "Unknown Venue",
+    "feedback": "Feedback",
+    "feedback_subject": "Gig-Tracker Feedback",
+    "feedback_prompt": "How can we improve, or did you find a bug?",
+    "feedback_placeholder": "Write your message here...",
+    "feedback_send": "Send message",
+    "feedback_success": "Thanks for your feedback!",
+    "feedback_error": "Could not send. Please try again later."
+  },
+  "nav": {
+    "gigs": "Your Gigs",
+    "archive": "The Archive",
+    "stats": "Insights",
+    "stats_sub": "Statistics",
+    "share": "Share Profile",
+    "share_sub": "Your URL",
+    "add": "New Gig",
+    "add_sub": "Add New"
+  },
+  "stats_bar": {
+    "total": "Total Gigs",
+    "cities": "Cities Visited",
+    "nations": "Top Nations",
+    "memories": "Memories",
+    "achievements": "Lifetime Achievements"
+  },
+  "stats_view": {
+    "heavy_rotation": "Heavy Rotation",
+    "second_homes": "Second Homes",
+    "timeline": "Concert Timeline",
+    "visits": "Visits",
+    "gigs_unit": "Gigs"
+  },
+  "forms": {
+    "add_title": "Add New Concert",
+    "edit_title": "Edit Concert",
+    "artist_label": "Artist / Band",
+    "artist_placeholder": "Who did you see?",
+    "venue_label": "Venue",
+    "venue_placeholder": "Search for venue/city...",
+    "date_label": "Date",
+    "submit_add": "Save Concert",
+    "submit_edit": "Update Concert",
+    "cancel": "Cancel",
+    "loading": "Saving...",
+    "success_add": "Concert saved!",
+    "success_edit": "Concert updated!"
+  },
+  "auth": {
+    "title": "GIG-TRACKER",
+    "subtitle": "Live Archive v1.1",
+    "username": "Desired Username",
+    "email": "Email",
+    "password": "Password",
+    "confirm_password": "Confirm Password",
+    "login_btn": "Log In",
+    "signup_btn": "Create Profile",
+    "toggle_signup": "New here? Start your archive",
+    "toggle_login": "← Back to login",
+    "loading": "Processing...",
+    "passwords_dont_match": "Passwords do not match",
+    "password_min_length": "Password must be at least 6 characters",
+    "username_taken": "Username is taken",
+    "username_available": "Available!",
+    "checking_username": "Checking...",
+    "success_signup": "Success! Logging you in..."
+  }
+}

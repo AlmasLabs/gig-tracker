@@ -1,0 +1,70 @@
+{
+  "common": {
+    "loading": "LASTER...",
+    "logout": "Logg ut",
+    "logout_confirm": "Er du sikker på at du vil logge ut?",
+    "authenticated": "Autentisert",
+    "unknown_artist": "Ukjent Artist",
+    "unknown_venue": "Ukjent Sted",
+    "feedback": "Tilbakemelding",
+    "feedback_subject": "Tilbakemelding Gig-Tracker"
+  },
+  "nav": {
+    "gigs": "Dine Gigs",
+    "archive": "Arkivet",
+    "stats": "Innsikt",
+    "stats_sub": "Statistikk",
+    "share": "Del Profil",
+    "share_sub": "Din URL",
+    "add": "Ny Gig",
+    "add_sub": "Legg til"
+  },
+  "stats_bar": {
+    "total": "Antall Gigs",
+    "cities": "Byer Besøkt",
+    "nations": "Topp Nasjoner",
+    "memories": "Minner",
+    "achievements": "Dine bragder"
+  },
+  "stats_view": {
+    "heavy_rotation": "Mest sett",
+    "second_homes": "Favorittsteder",
+    "timeline": "Tidslinje",
+    "visits": "Besøk",
+    "gigs_unit": "Gigs"
+  },
+  "forms": {
+    "add_title": "Legg til ny konsert",
+    "edit_title": "Rediger konsert",
+    "artist_label": "Artist / Band",
+    "artist_placeholder": "Hvem så du?",
+    "venue_label": "Spillested",
+    "venue_placeholder": "Søk etter lokale/by...",
+    "date_label": "Dato",
+    "submit_add": "Lagre konsert",
+    "submit_edit": "Oppdater konsert",
+    "cancel": "Avbryt",
+    "loading": "Lagrer...",
+    "success_add": "Konsert lagret!",
+    "success_edit": "Konsert oppdatert!"
+  },
+  "auth": {
+    "title": "GIG-TRACKER",
+    "subtitle": "Live Archive v1.1",
+    "username": "Ønsket Brukernavn",
+    "email": "E-post",
+    "password": "Passord",
+    "confirm_password": "Gjenta Passord",
+    "login_btn": "Logg Inn",
+    "signup_btn": "Opprett Profil",
+    "toggle_signup": "Ny her? Start ditt arkiv",
+    "toggle_login": "← Tilbake til innlogging",
+    "loading": "Behandler...",
+    "passwords_dont_match": "Passordene matcher ikke",
+    "password_min_length": "Passordet må være minst 6 tegn",
+    "username_taken": "Brukernavnet er tatt",
+    "username_available": "Ledig!",
+    "checking_username": "Sjekker...",
+    "success_signup": "Suksess! Logger deg inn..."
+  }
+}
