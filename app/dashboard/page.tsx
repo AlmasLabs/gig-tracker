@@ -93,8 +93,9 @@ export default function Dashboard() {
     }
   }
 
+  // FIKSET: Endret fra /user/ til /share/ for å matche din mappestruktur
   const handleShare = async () => {
-    const shareUrl = `${window.location.origin}/user/${username?.replace(/\s+/g, '-').toLowerCase()}`;
+    const shareUrl = `${window.location.origin}/share/${username?.replace(/\s+/g, '-').toLowerCase()}`;
     try {
       if (navigator.share) {
         await navigator.share({
@@ -213,7 +214,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* FEEDBACK MODAL (Samme som før) */}
+      {/* FEEDBACK MODAL */}
       {isFeedbackOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setIsFeedbackOpen(false)} />
@@ -241,7 +242,6 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-4xl mx-auto">
-        {/* LISTE VISNING */}
         {activeTab === 'list' && (
           <div className="space-y-12 animate-in fade-in duration-500">
             {concerts.length > 0 && (
@@ -292,7 +292,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* DELING VISNING - NY SEKSJON SOM MANGLER TIDLIGERE */}
+        {/* DELING VISNING - FIKSET URL TIL /share/ */}
         {activeTab === 'share' && (
           <div className="max-w-xl mx-auto bg-slate-900 p-8 rounded-[2.5rem] border border-white/5 text-center animate-in fade-in zoom-in-95 duration-300">
             <div className="w-16 h-16 bg-fuchsia-500/10 rounded-2xl flex items-center justify-center text-fuchsia-500 mx-auto mb-6">
@@ -305,7 +305,7 @@ export default function Dashboard() {
               <p className="text-[10px] text-slate-500 uppercase font-black mb-1 text-left ml-1">Profil-link</p>
               <div className="flex items-center justify-between gap-3">
                 <code className="text-xs text-fuchsia-400 font-mono truncate">
-                  {typeof window !== 'undefined' ? `${window.location.origin}/user/${username?.replace(/\s+/g, '-').toLowerCase()}` : ''}
+                  {typeof window !== 'undefined' ? `${window.location.origin}/share/${username?.replace(/\s+/g, '-').toLowerCase()}` : ''}
                 </code>
                 <Copy size={14} className="text-slate-600" />
               </div>
@@ -334,7 +334,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* BILDE MODAL (Samme som før) */}
       {isMapModalOpen && selectedConcert && (
         <ImageModal 
           images={Array.isArray(selectedConcert.event_img_url) ? selectedConcert.event_img_url : []} 
