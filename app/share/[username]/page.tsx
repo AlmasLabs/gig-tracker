@@ -24,7 +24,9 @@ const mapOptions = {
 
 export default function ShareProfile() {
   const params = useParams()
-  const decodedUsername = params.username ? decodeURIComponent(params.username as string) : ''
+  // 1. Vi dekoder URL-en og bytter ut bindestreker med mellomrom for å finne riktig navn i DB
+  const rawUsername = params.username ? decodeURIComponent(params.username as string) : ''
+  const decodedUsername = rawUsername.replace(/-/g, ' ')
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
@@ -37,11 +39,13 @@ export default function ShareProfile() {
   const [loading, setLoading] = useState(true)
   const [selectedConcert, setSelectedConcert] = useState<any>(null)
   const [profileExists, setProfileExists] = useState(true)
+  const [actualUsername, setActualUsername] = useState('') // For å vise navnet slik det er lagret i DB
 
   useEffect(() => {
     const fetchPublicProfile = async () => {
       if (!decodedUsername) return;
 
+      // 2. Vi bruker .ilike for å være case-insensitive
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('id, username')
@@ -49,6 +53,7 @@ export default function ShareProfile() {
         .maybeSingle()
 
       if (profile) {
+        setActualUsername(profile.username)
         const { data: concertData } = await supabase
           .from('concerts')
           .select('*')
@@ -90,7 +95,7 @@ export default function ShareProfile() {
       <div className="max-w-4xl mx-auto text-center mb-12">
         <p className="text-[10px] uppercase tracking-[0.5em] text-fuchsia-500 font-black mb-2 italic">Public Collection</p>
         <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none break-words">
-          {decodedUsername}
+          {actualUsername || decodedUsername}
         </h1>
         <div className="h-1 w-20 bg-fuchsia-600 mx-auto mt-6 shadow-[0_0_15px_rgba(217,70,239,0.5)]" />
       </div>
@@ -186,7 +191,7 @@ export default function ShareProfile() {
       {/* Archive Grid */}
       <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
         {concerts.map((concert) => (
-          <TicketCard key={concert.id} concert={concert} /> 
+          <TicketCard key={concert.id} concert={concert} isPublicView={true} /> 
         ))}
       </div>
 
