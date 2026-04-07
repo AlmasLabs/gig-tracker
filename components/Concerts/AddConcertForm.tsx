@@ -26,9 +26,14 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
   })
   const [previews, setPreviews] = useState<string[]>([])
 
+  // States for tekstfelter - concertDate formateres til YYYY-MM-DD
   const [artistName, setArtistName] = useState(initialData?.artist_name || '')
   const [venueName, setVenueName] = useState(initialData?.venue_name || '')
-  const [concertDate, setConcertDate] = useState(initialData?.concert_date || '')
+  const [concertDate, setConcertDate] = useState(() => {
+    if (!initialData?.concert_date) return '';
+    // Sørger for at datoen er i formatet YYYY-MM-DD (kutter ISO-tid)
+    return initialData.concert_date.substring(0, 10);
+  })
   const [address, setAddress] = useState(initialData?.address || '')
   const [coordinates, setCoordinates] = useState({
     lat: initialData?.lat || 0,
@@ -43,30 +48,37 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
     getUser();
   }, []);
 
+  // Oppdaterer feltene hvis initialData endres (f.eks. når modalen åpnes)
+  useEffect(() => {
+    if (initialData) {
+      setArtistName(initialData.artist_name || '');
+      setVenueName(initialData.venue_name || '');
+      setConcertDate(initialData.concert_date ? initialData.concert_date.substring(0, 10) : '');
+      setAddress(initialData.address || '');
+      setExistingImages(Array.isArray(initialData.event_img_url) ? initialData.event_img_url : (initialData.event_img_url ? [initialData.event_img_url] : []));
+    }
+  }, [initialData]);
+
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
     libraries: libraries,
   })
 
-  // Håndter valg av flere bilder
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const filesArray = Array.from(e.target.files)
       setImageFiles(prev => [...prev, ...filesArray])
-      
       const newPreviews = filesArray.map(file => URL.createObjectURL(file))
       setPreviews(prev => [...prev, ...newPreviews])
     }
   }
 
-  // Fjern bilde fra køen før opplasting
   const removeNewImage = (index: number) => {
     setImageFiles(prev => prev.filter((_, i) => i !== index))
     setPreviews(prev => prev.filter((_, i) => i !== index))
   }
 
-  // Fjern eksisterende bilde (ved redigering)
   const removeExistingImage = (index: number) => {
     setExistingImages(prev => prev.filter((_, i) => i !== index))
   }
@@ -97,7 +109,6 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
     setLoading(true)
     
     try {
-      // Last opp nye bilder og kombiner med de som allerede ligger der
       const newImageUrls = await uploadImages(imageFiles)
       const allImages = [...existingImages, ...newImageUrls]
 
@@ -108,7 +119,7 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
         address: address || venueName,
         lat: coordinates.lat,
         lng: coordinates.lng,
-        event_img_url: allImages, // Sender hele listen som Array
+        event_img_url: allImages,
         user_id: userId,
       }
 
@@ -121,7 +132,7 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
 
       if (result.error) throw result.error
       
-      alert("Suksess! Konserten med alle bilder er lagret.");
+      alert("Suksess! Konserten er lagret.");
       onAdded();
     } catch (err: any) {
       alert("Feil: " + err.message);
@@ -138,28 +149,22 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
 
       <form onSubmit={handleSubmit} className="space-y-6">
         
-        {/* BILDE-GALLERI FORHÅNDSVISNING */}
+        {/* BILDE-GALLERI */}
         <div className="space-y-4">
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 italic">Bilder / Galleri</label>
-          
           <div className="grid grid-cols-3 gap-4">
-            {/* Eksisterende bilder */}
             {existingImages.map((url, i) => (
               <div key={`exist-${i}`} className="relative h-24 bg-slate-950 rounded-xl overflow-hidden border border-white/10">
                 <img src={url} className="w-full h-full object-cover" />
                 <button type="button" onClick={() => removeExistingImage(i)} className="absolute top-1 right-1 bg-red-600 p-1 rounded-full text-white"><X size={12}/></button>
               </div>
             ))}
-            
-            {/* Nye bilde-previews */}
             {previews.map((url, i) => (
               <div key={`new-${i}`} className="relative h-24 bg-slate-950 rounded-xl overflow-hidden border border-fuchsia-500/30">
                 <img src={url} className="w-full h-full object-cover opacity-70" />
                 <button type="button" onClick={() => removeNewImage(i)} className="absolute top-1 right-1 bg-red-600 p-1 rounded-full text-white"><X size={12}/></button>
               </div>
             ))}
-
-            {/* Opplastings-knapp (Boks) */}
             <label className="flex flex-col items-center justify-center h-24 bg-slate-950 border-2 border-dashed border-slate-800 rounded-xl hover:border-fuchsia-500/50 transition-all cursor-pointer group">
               <Upload size={20} className="text-slate-500 group-hover:text-fuchsia-500" />
               <input type="file" multiple accept="image/*" onChange={handleImageChange} className="hidden" />
@@ -212,13 +217,15 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
         {/* DATO */}
         <div className="group">
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2 italic">Dato</label>
-          <input
-            type="date"
-            value={concertDate}
-            onChange={(e) => setConcertDate(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-fuchsia-500 [color-scheme:dark]"
-            required
-          />
+          <div className="relative">
+            <input
+              type="date"
+              value={concertDate}
+              onChange={(e) => setConcertDate(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-fuchsia-500 [color-scheme:dark]"
+              required
+            />
+          </div>
         </div>
 
         <button
