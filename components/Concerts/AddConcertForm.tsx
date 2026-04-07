@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useTranslation } from '@/app/context/LanguageContext'
-import { Calendar, Music, MapPin, Loader2, Image as ImageIcon, Upload } from 'lucide-react'
+import { Calendar, Music, MapPin, Loader2, Image as ImageIcon, Upload, X } from 'lucide-react'
 import { useJsApiLoader, Autocomplete } from '@react-google-maps/api'
 
 const libraries: ("places")[] = ["places"];
@@ -18,21 +18,18 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
   const [userId, setUserId] = useState<string | null>(null)
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   
-  // States for skjemaet
+  // States for flere bilder
+  const [imageFiles, setImageFiles] = useState<File[]>([])
+  const [existingImages, setExistingImages] = useState<string[]>(() => {
+    if (!initialData?.event_img_url) return [];
+    return Array.isArray(initialData.event_img_url) ? initialData.event_img_url : [initialData.event_img_url];
+  })
+  const [previews, setPreviews] = useState<string[]>([])
+
   const [artistName, setArtistName] = useState(initialData?.artist_name || '')
   const [venueName, setVenueName] = useState(initialData?.venue_name || '')
   const [concertDate, setConcertDate] = useState(initialData?.concert_date || '')
   const [address, setAddress] = useState(initialData?.address || '')
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  
-  // Håndterer både array og streng fra initialData
-  const [imagePreview, setImagePreview] = useState<string | null>(() => {
-    if (!initialData?.event_img_url) return null;
-    return Array.isArray(initialData.event_img_url) 
-      ? initialData.event_img_url[0] 
-      : initialData.event_img_url;
-  })
-  
   const [coordinates, setCoordinates] = useState({
     lat: initialData?.lat || 0,
     lng: initialData?.lng || 0
@@ -52,48 +49,47 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
     libraries: libraries,
   })
 
-  const onPlaceChanged = () => {
-    if (autocompleteRef.current !== null) {
-      const place = autocompleteRef.current.getPlace();
-      const loc = place.geometry?.location;
-      if (place.name) setVenueName(place.name);
-      if (place.formatted_address) setAddress(place.formatted_address);
-      if (loc) {
-        setCoordinates({ lat: loc.lat(), lng: loc.lng() });
-      }
-    }
-  };
-
+  // Håndter valg av flere bilder
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0]
-      setImageFile(file)
-      setImagePreview(URL.createObjectURL(file))
+    if (e.target.files) {
+      const filesArray = Array.from(e.target.files)
+      setImageFiles(prev => [...prev, ...filesArray])
+      
+      const newPreviews = filesArray.map(file => URL.createObjectURL(file))
+      setPreviews(prev => [...prev, ...newPreviews])
     }
   }
 
-  const uploadImage = async (file: File) => {
-    const fileExt = file.name.split('.').pop()
-    const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
-    const filePath = fileName 
+  // Fjern bilde fra køen før opplasting
+  const removeNewImage = (index: number) => {
+    setImageFiles(prev => prev.filter((_, i) => i !== index))
+    setPreviews(prev => prev.filter((_, i) => i !== index))
+  }
 
-    const { data, error: uploadError } = await supabase.storage
-      .from('concert-photos')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false
-      })
+  // Fjern eksisterende bilde (ved redigering)
+  const removeExistingImage = (index: number) => {
+    setExistingImages(prev => prev.filter((_, i) => i !== index))
+  }
 
-    if (uploadError) {
-      console.error("Storage Error Detail:", uploadError);
-      throw uploadError;
-    }
+  const uploadImages = async (files: File[]) => {
+    const uploadPromises = files.map(async (file) => {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
+      
+      const { error: uploadError } = await supabase.storage
+        .from('concert-photos')
+        .upload(fileName, file)
 
-    const { data: urlData } = supabase.storage
-      .from('concert-photos')
-      .getPublicUrl(filePath)
+      if (uploadError) throw uploadError
 
-    return urlData.publicUrl
+      const { data: urlData } = supabase.storage
+        .from('concert-photos')
+        .getPublicUrl(fileName)
+
+      return urlData.publicUrl
+    })
+
+    return Promise.all(uploadPromises)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -101,14 +97,10 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
     setLoading(true)
     
     try {
-      let imageUrl = imagePreview
+      // Last opp nye bilder og kombiner med de som allerede ligger der
+      const newImageUrls = await uploadImages(imageFiles)
+      const allImages = [...existingImages, ...newImageUrls]
 
-      if (imageFile) {
-        imageUrl = await uploadImage(imageFile)
-      }
-
-      // KONSERTDATA: Her sender vi imageUrl som et ARRAY [imageUrl] 
-      // for å matche databasens "Array literal" forventning
       const concertData = {
         artist_name: artistName,
         venue_name: venueName,
@@ -116,11 +108,9 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
         address: address || venueName,
         lat: coordinates.lat,
         lng: coordinates.lng,
-        event_img_url: imageUrl ? [imageUrl] : null, // FIKS: Pakket inn i klammer
+        event_img_url: allImages, // Sender hele listen som Array
         user_id: userId,
       }
-
-      console.log("Sender data til Supabase (med Array-fiks):", concertData);
 
       let result;
       if (initialData?.id) {
@@ -131,11 +121,10 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
 
       if (result.error) throw result.error
       
-      alert("Suksess! Konserten er lagret.");
+      alert("Suksess! Konserten med alle bilder er lagret.");
       onAdded();
     } catch (err: any) {
-      console.error("Submit error:", err);
-      alert("Kunne ikke lagre: " + (err.message || "Ukjent feil"));
+      alert("Feil: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -144,61 +133,77 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
   return (
     <div className="max-w-2xl mx-auto bg-slate-900 p-8 rounded-3xl border border-white/5 shadow-2xl">
       <h2 className="text-2xl font-black italic uppercase mb-8 text-white tracking-tighter">
-        {initialData ? t.forms.edit_title : t.forms.add_title}
+        {initialData ? "Rediger konsert" : "Legg til konsert"}
       </h2>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         
-        {/* BILDEOPPLASTING */}
-        <div className="group">
-          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2 italic">Bilde / Poster</label>
-          <div className="relative h-48 w-full bg-slate-950 border-2 border-dashed border-slate-800 rounded-2xl overflow-hidden hover:border-fuchsia-500/50 transition-all cursor-pointer">
-            {imagePreview ? (
-              <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-slate-500">
-                <ImageIcon size={32} className="mb-2" />
-                <span className="text-xs uppercase font-black tracking-widest italic">Klikk for å laste opp</span>
+        {/* BILDE-GALLERI FORHÅNDSVISNING */}
+        <div className="space-y-4">
+          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 italic">Bilder / Galleri</label>
+          
+          <div className="grid grid-cols-3 gap-4">
+            {/* Eksisterende bilder */}
+            {existingImages.map((url, i) => (
+              <div key={`exist-${i}`} className="relative h-24 bg-slate-950 rounded-xl overflow-hidden border border-white/10">
+                <img src={url} className="w-full h-full object-cover" />
+                <button type="button" onClick={() => removeExistingImage(i)} className="absolute top-1 right-1 bg-red-600 p-1 rounded-full text-white"><X size={12}/></button>
               </div>
-            )}
-            <input 
-              type="file" 
-              accept="image/*" 
-              onChange={handleImageChange}
-              className="absolute inset-0 opacity-0 cursor-pointer" 
-            />
+            ))}
+            
+            {/* Nye bilde-previews */}
+            {previews.map((url, i) => (
+              <div key={`new-${i}`} className="relative h-24 bg-slate-950 rounded-xl overflow-hidden border border-fuchsia-500/30">
+                <img src={url} className="w-full h-full object-cover opacity-70" />
+                <button type="button" onClick={() => removeNewImage(i)} className="absolute top-1 right-1 bg-red-600 p-1 rounded-full text-white"><X size={12}/></button>
+              </div>
+            ))}
+
+            {/* Opplastings-knapp (Boks) */}
+            <label className="flex flex-col items-center justify-center h-24 bg-slate-950 border-2 border-dashed border-slate-800 rounded-xl hover:border-fuchsia-500/50 transition-all cursor-pointer group">
+              <Upload size={20} className="text-slate-500 group-hover:text-fuchsia-500" />
+              <input type="file" multiple accept="image/*" onChange={handleImageChange} className="hidden" />
+            </label>
           </div>
         </div>
 
         {/* ARTIST */}
         <div className="group">
-          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">Artist</label>
+          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2 italic">Artist</label>
           <input
             type="text"
             value={artistName}
             onChange={(e) => setArtistName(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-fuchsia-500 transition-colors"
+            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-fuchsia-500"
             required
           />
         </div>
 
         {/* STED */}
         <div className="group">
-          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">Sted</label>
+          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2 italic">Sted</label>
           <div className="relative">
             {isLoaded ? (
-              <Autocomplete onLoad={(ref) => (autocompleteRef.current = ref)} onPlaceChanged={onPlaceChanged}>
+              <Autocomplete onLoad={(ref) => (autocompleteRef.current = ref)} onPlaceChanged={() => {
+                const place = autocompleteRef.current?.getPlace();
+                if (place) {
+                  setVenueName(place.name || '');
+                  setAddress(place.formatted_address || '');
+                  const loc = place.geometry?.location;
+                  if (loc) setCoordinates({ lat: loc.lat(), lng: loc.lng() });
+                }
+              }}>
                 <input
                   type="text"
                   value={venueName}
                   onChange={(e) => setVenueName(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-fuchsia-500"
-                  placeholder="Søk etter scene eller by..."
+                  placeholder="Søk sted..."
                   required
                 />
               </Autocomplete>
             ) : (
-              <div className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-slate-500 animate-pulse">Laster Google Maps...</div>
+              <div className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-slate-500">Laster kart...</div>
             )}
             <MapPin className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
           </div>
@@ -206,7 +211,7 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
 
         {/* DATO */}
         <div className="group">
-          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">Dato</label>
+          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2 italic">Dato</label>
           <input
             type="date"
             value={concertDate}
@@ -219,7 +224,7 @@ export default function AddConcertForm({ onAdded, initialData }: AddConcertFormP
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-black uppercase p-5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-fuchsia-500/20 active:scale-[0.98]"
+          className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-black uppercase p-5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-fuchsia-500/20"
         >
           {loading ? <Loader2 className="animate-spin" /> : <Upload size={18} />}
           {initialData ? "Oppdater Konsert" : "Publiser Konsert"}
