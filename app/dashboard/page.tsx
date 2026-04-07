@@ -264,13 +264,47 @@ export default function Dashboard() {
                     />
                   ))}
                   {selectedConcert && (
-                    <InfoWindowF position={{ lat: Number(selectedConcert.lat), lng: Number(selectedConcert.lng) }} onCloseClick={() => setSelectedConcert(null)}>
-                      <div className="p-2 min-w-[200px] text-slate-900 bg-white">
-                        <h3 className="font-black uppercase italic text-sm mb-1">{selectedConcert.artist_name}</h3>
-                        <p className="text-[10px] font-bold text-fuchsia-600 uppercase">{selectedConcert.venue_name}</p>
-                      </div>
-                    </InfoWindowF>
-                  )}
+  <InfoWindowF 
+    position={{ lat: Number(selectedConcert.lat), lng: Number(selectedConcert.lng) }} 
+    onCloseClick={() => setSelectedConcert(null)}
+  >
+    <div className="p-2 min-w-[200px] text-slate-900 bg-white">
+      {/* BILDE-FIKS HER: Sjekker om det er et array og henter bilde nr 1 */}
+      {Array.isArray(selectedConcert.event_img_url) && selectedConcert.event_img_url.length > 0 ? (
+        <div 
+          className="mb-3 rounded-lg overflow-hidden h-32 w-full bg-slate-50 cursor-pointer relative" 
+          onClick={() => setIsMapModalOpen(true)}
+        >
+          <img 
+            src={selectedConcert.event_img_url[0]} 
+            className="w-full h-full object-cover" 
+            alt={selectedConcert.artist_name} 
+          />
+          {selectedConcert.event_img_url.length > 1 && (
+            <div className="absolute top-2 right-2 bg-fuchsia-600 text-white text-[8px] px-1.5 py-0.5 rounded font-black">
+              +{selectedConcert.event_img_url.length - 1}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="mb-3 h-32 w-full bg-slate-100 rounded-lg flex items-center justify-center text-slate-300">
+          <Music size={24} />
+        </div>
+      )}
+      
+      <h3 className="font-black uppercase italic text-sm mb-1">{selectedConcert.artist_name}</h3>
+      <p className="text-[10px] font-bold text-fuchsia-600 uppercase">{selectedConcert.venue_name}</p>
+      
+      <p className="text-[9px] text-slate-500 mt-1 font-bold">
+        {new Date(selectedConcert.concert_date).toLocaleDateString('nb-NO', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric'
+        })}
+      </p>
+    </div>
+  </InfoWindowF>
+)}
                 </GoogleMap>
               </div>
             )}
