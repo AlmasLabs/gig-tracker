@@ -3,7 +3,7 @@ import { Calendar, MapPin, Edit2, Trash2, ImageIcon } from 'lucide-react'
 import { useState } from 'react'
 import ImageModal from './ImageModal'
 
-// Hjelpefunksjon som returnerer landskode (no, se, us osv)
+// Hjelpefunksjon som returnerer landskode
 const getCountryCode = (address: string) => {
   if (!address) return null;
   
@@ -32,9 +32,15 @@ interface TicketProps {
   concert: any
   onEdit?: (concert: any) => void
   onDelete?: (id: string | number) => void
+  isPublicView?: boolean; // LAGT TIL: For å støtte delingsvisning
 }
 
-export default function TicketCard({ concert, onEdit, onDelete }: TicketProps) {
+export default function TicketCard({ 
+  concert, 
+  onEdit, 
+  onDelete, 
+  isPublicView = false // Standardverdi er false
+}: TicketProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   
   const images = Array.isArray(concert.event_img_url) ? concert.event_img_url : [];
@@ -92,7 +98,6 @@ export default function TicketCard({ concert, onEdit, onDelete }: TicketProps) {
             <div className="flex items-center gap-2 text-slate-300 text-xs">
               <MapPin size={13} className="text-fuchsia-500 flex-shrink-0" />
               <span className="truncate flex items-center gap-2">
-                {/* FLAG-LOGIKK: Bruker bilde i stedet for emoji */}
                 {countryCode ? (
                   <img 
                     src={`https://flagcdn.com/w20/${countryCode}.png`}
@@ -112,27 +117,29 @@ export default function TicketCard({ concert, onEdit, onDelete }: TicketProps) {
           </div>
         </div>
 
-        {/* 4. KNAPPER */}
-        <div className="absolute top-2 right-3 z-30 flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
-          {onEdit && (
-            <button 
-              onClick={(e) => { e.stopPropagation(); onEdit(concert); }} 
-              className="p-2 bg-slate-950/80 rounded-lg text-slate-400 hover:text-fuchsia-400 border border-slate-800 hover:border-fuchsia-500 transition-all"
-              title="Rediger"
-            >
-              <Edit2 size={14} />
-            </button>
-          )}
-          {onDelete && (
-            <button 
-              onClick={(e) => { e.stopPropagation(); onDelete(concert.id); }} 
-              className="p-2 bg-slate-950/80 rounded-lg text-slate-400 hover:text-red-500 border border-slate-800 hover:border-red-500 transition-all"
-              title="Slett"
-            >
-              <Trash2 size={14} />
-            </button>
-          )}
-        </div>
+        {/* 4. KNAPPER - Skjules hvis isPublicView er true */}
+        {!isPublicView && (
+          <div className="absolute top-2 right-3 z-30 flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+            {onEdit && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); onEdit(concert); }} 
+                className="p-2 bg-slate-950/80 rounded-lg text-slate-400 hover:text-fuchsia-400 border border-slate-800 hover:border-fuchsia-500 transition-all"
+                title="Rediger"
+              >
+                <Edit2 size={14} />
+              </button>
+            )}
+            {onDelete && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); onDelete(concert.id); }} 
+                className="p-2 bg-slate-950/80 rounded-lg text-slate-400 hover:text-red-500 border border-slate-800 hover:border-red-500 transition-all"
+                title="Slett"
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 5. BILDE-MODAL */}

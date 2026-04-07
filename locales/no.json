@@ -7,7 +7,12 @@
     "unknown_artist": "Ukjent Artist",
     "unknown_venue": "Ukjent Sted",
     "feedback": "Tilbakemelding",
-    "feedback_subject": "Tilbakemelding Gig-Tracker"
+    "feedback_subject": "Tilbakemelding Gig-Tracker",
+    "feedback_prompt": "Hva kan vi forbedre, eller fant du en feil?",
+    "feedback_placeholder": "Skriv din melding her...",
+    "feedback_send": "Send melding",
+    "feedback_success": "Takk for tilbakemeldingen!",
+    "feedback_error": "Kunne ikke sende. Prøv igjen senere."
   },
   "nav": {
     "gigs": "Dine Gigs",
