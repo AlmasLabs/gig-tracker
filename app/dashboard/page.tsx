@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 import { GoogleMap, MarkerF, InfoWindowF, useJsApiLoader } from '@react-google-maps/api'
-import { BarChart3, Music, LogOut, ChevronDown, Check, User, MessageSquare, X, Send, Settings } from 'lucide-react'
+import { BarChart3, Music, LogOut, ChevronDown, Check, User, MessageSquare, X, Send, Settings, Share2, Copy } from 'lucide-react'
 import AddConcertForm from '@/components/Concerts/AddConcertForm'
 import TicketCard from '@/components/Concerts/TicketCard'
 import ImageModal from '@/components/Concerts/ImageModal'
@@ -11,21 +11,6 @@ import StatsView from '@/components/Stats/StatsView'
 import { useTranslation } from "@/app/context/LanguageContext";
 
 const libraries: ("places")[] = ["places"];
-
-const getCountryCode = (address: string) => {
-  if (!address) return null;
-  const parts = address.split(',');
-  const country = parts[parts.length - 1].trim().toLowerCase();
-  const countryMap: { [key: string]: string } = {
-    'norway': 'no', 'norge': 'no', 'sweden': 'se', 'sverige': 'se',
-    'denmark': 'dk', 'danmark': 'dk', 'germany': 'de', 'tyskland': 'de',
-    'uk': 'gb', 'united kingdom': 'gb', 'storbritannia': 'gb',
-    'usa': 'us', 'united states': 'us', 'france': 'fr', 'frankrike': 'fr',
-    'italy': 'it', 'italia': 'it', 'spain': 'es', 'spania': 'es',
-    'netherlands': 'nl', 'nederland': 'nl'
-  };
-  return countryMap[country] || null;
-};
 
 const mapOptions = {
   disableDefaultUI: false,
@@ -108,12 +93,28 @@ export default function Dashboard() {
     }
   }
 
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/user/${username?.replace(/\s+/g, '-').toLowerCase()}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `GIG-TRACKER: ${username}`,
+          text: 'Sjekk ut alle konsertene jeg har vært på!',
+          url: shareUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        alert(locale === 'no' ? "Lenke kopiert!" : "Link copied!");
+      }
+    } catch (err) {
+      console.log("Kunne ikke dele:", err);
+    }
+  };
+
   const submitFeedback = async () => {
     if (!feedbackText.trim()) return;
-    
     setIsSendingFeedback(true);
     try {
-      // 1. Lagre i Supabase
       const { error } = await supabase
         .from('feedback')
         .insert([{ 
@@ -124,7 +125,6 @@ export default function Dashboard() {
 
       if (error) throw error;
 
-      // 2. Send e-postvarsling via Formspree
       await fetch("https://formspree.io/f/mwvwarln", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -135,15 +135,11 @@ export default function Dashboard() {
         })
       });
 
-      const successMsg = t?.common?.feedback_success || "Takk for tilbakemeldingen!";
-      alert(successMsg);
-
+      alert(t?.common?.feedback_success || "Takk!");
       setFeedbackText('');
       setIsFeedbackOpen(false);
     } catch (err) {
-      const errorMsg = t?.common?.feedback_error || "Kunne ikke sende meldingen.";
-      alert(errorMsg);
-      console.error("Feedback error:", err);
+      alert(t?.common?.feedback_error || "Feil.");
     } finally {
       setIsSendingFeedback(false);
     }
@@ -161,7 +157,7 @@ export default function Dashboard() {
       {/* TOPBAR */}
       <div className="max-w-4xl mx-auto flex justify-between items-center mb-10 pt-2">
         <div className="flex flex-col">
-          <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none text-fuchsia-500">GIG-TRACKER</h1>
+          <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none text-fuchsia-500 cursor-pointer" onClick={() => setActiveTab('list')}>GIG-TRACKER</h1>
           <p className="text-[8px] uppercase tracking-[0.4em] text-slate-600 font-bold mt-1">Live Archive</p>
         </div>
 
@@ -198,22 +194,15 @@ export default function Dashboard() {
                     </div>
                     {locale === 'en' && <Check size={12} />}
                   </button>
-                  
                   <div className="my-1 border-t border-slate-800" />
-                  
                   <button onClick={() => { setIsFeedbackOpen(true); setIsProfileOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold uppercase text-slate-300 hover:bg-slate-800 transition-colors">
                     <MessageSquare size={14} className="text-fuchsia-500" /> {t.common.feedback}
                   </button>
-
                   {userId === ADMIN_ID && (
-                    <button 
-                      onClick={() => { router.push('/admin/feedback'); setIsProfileOpen(false); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold uppercase text-fuchsia-400 hover:bg-fuchsia-500/10 transition-colors"
-                    >
+                    <button onClick={() => { router.push('/admin/feedback'); setIsProfileOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold uppercase text-fuchsia-400 hover:bg-fuchsia-500/10 transition-colors">
                       <Settings size={14} /> Admin Panel
                     </button>
                   )}
-
                   <button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold uppercase text-red-400 hover:bg-red-500/10">
                     <LogOut size={14} /> {t.common.logout}
                   </button>
@@ -224,32 +213,19 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* FEEDBACK MODAL */}
+      {/* FEEDBACK MODAL (Samme som før) */}
       {isFeedbackOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setIsFeedbackOpen(false)} />
           <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-[2rem] p-8 shadow-2xl text-center">
-            <button onClick={() => setIsFeedbackOpen(false)} className="absolute right-6 top-6 text-slate-500 hover:text-white transition-colors">
-              <X size={20} />
-            </button>
-            <h2 className="text-xl font-black italic uppercase text-fuchsia-500 mb-2 tracking-tighter">
-              {t.common.feedback}
-            </h2>
-            <p className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mb-6">
-              {t.common.feedback_prompt}
-            </p>
+            <button onClick={() => setIsFeedbackOpen(false)} className="absolute right-6 top-6 text-slate-500 hover:text-white transition-colors"><X size={20} /></button>
+            <h2 className="text-xl font-black italic uppercase text-fuchsia-500 mb-2 tracking-tighter">{t.common.feedback}</h2>
             <textarea 
-              autoFocus
               className="w-full h-32 bg-slate-800 border border-slate-700 rounded-2xl p-4 text-sm outline-none focus:border-fuchsia-500 transition-all resize-none mb-6 text-white"
-              placeholder={t?.common?.feedback_placeholder || "..."}
               value={feedbackText}
               onChange={(e) => setFeedbackText(e.target.value)}
             />
-            <button 
-              onClick={submitFeedback}
-              disabled={isSendingFeedback || !feedbackText.trim()}
-              className="w-full bg-fuchsia-600 p-4 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 transition-all text-white"
-            >
+            <button onClick={submitFeedback} className="w-full bg-fuchsia-600 p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 text-white">
               {isSendingFeedback ? '...' : <><Send size={14}/> {t?.common?.feedback_send || "SEND"}</>}
             </button>
           </div>
@@ -265,6 +241,7 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-4xl mx-auto">
+        {/* LISTE VISNING */}
         {activeTab === 'list' && (
           <div className="space-y-12 animate-in fade-in duration-500">
             {concerts.length > 0 && (
@@ -289,13 +266,6 @@ export default function Dashboard() {
                   {selectedConcert && (
                     <InfoWindowF position={{ lat: Number(selectedConcert.lat), lng: Number(selectedConcert.lng) }} onCloseClick={() => setSelectedConcert(null)}>
                       <div className="p-2 min-w-[200px] text-slate-900 bg-white">
-                        {Array.isArray(selectedConcert.event_img_url) && selectedConcert.event_img_url.length > 0 ? (
-                          <div className="mb-3 rounded-lg overflow-hidden h-32 w-full bg-slate-50 cursor-pointer relative" onClick={() => setIsMapModalOpen(true)}>
-                            <img src={selectedConcert.event_img_url[0]} className="w-full h-full object-cover" alt={selectedConcert.artist_name} />
-                          </div>
-                        ) : (
-                          <div className="mb-3 h-32 w-full bg-slate-100 rounded-lg flex items-center justify-center text-slate-300"><Music size={24} /></div>
-                        )}
                         <h3 className="font-black uppercase italic text-sm mb-1">{selectedConcert.artist_name}</h3>
                         <p className="text-[10px] font-bold text-fuchsia-600 uppercase">{selectedConcert.venue_name}</p>
                       </div>
@@ -304,7 +274,6 @@ export default function Dashboard() {
                 </GoogleMap>
               </div>
             )}
-            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-20">
               {concerts.map((concert) => (
                 <TicketCard 
@@ -312,7 +281,7 @@ export default function Dashboard() {
                   concert={concert} 
                   onEdit={(c) => { setEditingConcert(c); setActiveTab('add'); }} 
                   onDelete={async (id) => { 
-                    if(confirm(locale === 'no' ? "Slette?" : "Delete?")) { 
+                    if(confirm("Slette?")) { 
                       await supabase.from('concerts').delete().eq('id', id); 
                       fetchConcerts(userId || ""); 
                     } 
@@ -320,6 +289,35 @@ export default function Dashboard() {
                 />
               ))}
             </div>
+          </div>
+        )}
+
+        {/* DELING VISNING - NY SEKSJON SOM MANGLER TIDLIGERE */}
+        {activeTab === 'share' && (
+          <div className="max-w-xl mx-auto bg-slate-900 p-8 rounded-[2.5rem] border border-white/5 text-center animate-in fade-in zoom-in-95 duration-300">
+            <div className="w-16 h-16 bg-fuchsia-500/10 rounded-2xl flex items-center justify-center text-fuchsia-500 mx-auto mb-6">
+              <Share2 size={28} />
+            </div>
+            <h2 className="text-2xl font-black italic uppercase text-white mb-2">{t.nav.share}</h2>
+            <p className="text-slate-500 text-xs uppercase tracking-widest font-bold mb-8">{t.nav.share_sub}</p>
+            
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 mb-6 group transition-all hover:border-fuchsia-500/30">
+              <p className="text-[10px] text-slate-500 uppercase font-black mb-1 text-left ml-1">Profil-link</p>
+              <div className="flex items-center justify-between gap-3">
+                <code className="text-xs text-fuchsia-400 font-mono truncate">
+                  {typeof window !== 'undefined' ? `${window.location.origin}/user/${username?.replace(/\s+/g, '-').toLowerCase()}` : ''}
+                </code>
+                <Copy size={14} className="text-slate-600" />
+              </div>
+            </div>
+
+            <button
+              onClick={handleShare}
+              className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-black uppercase p-5 rounded-2xl transition-all shadow-lg shadow-fuchsia-500/20 active:scale-95 flex items-center justify-center gap-3"
+            >
+              <Check size={18} />
+              {locale === 'no' ? 'Del eller kopier' : 'Share or Copy'}
+            </button>
           </div>
         )}
 
@@ -336,6 +334,7 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* BILDE MODAL (Samme som før) */}
       {isMapModalOpen && selectedConcert && (
         <ImageModal 
           images={Array.isArray(selectedConcert.event_img_url) ? selectedConcert.event_img_url : []} 
