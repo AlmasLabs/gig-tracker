@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 import { GoogleMap, MarkerF, InfoWindowF, useJsApiLoader } from '@react-google-maps/api'
@@ -39,6 +39,10 @@ export default function Dashboard() {
     libraries: libraries,
   })
 
+  // Kart-referanser og posisjon
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const [mapCenter, setMapCenter] = useState({ lat: 59.91, lng: 10.75 }); // Standard Oslo
+
   const [isMapModalOpen, setIsMapModalOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false)
@@ -77,6 +81,13 @@ export default function Dashboard() {
     getInitialData()
   }, [router, setLocale])
 
+  // Når konserter er lastet, sett senter til nyeste konsert (kun første gang)
+  useEffect(() => {
+    if (concerts.length > 0 && loading === false) {
+      setMapCenter({ lat: Number(concerts[0].lat), lng: Number(concerts[0].lng) });
+    }
+  }, [concerts.length]); // Kjører kun når antall konserter endres
+
   const fetchConcerts = async (userId: string) => {
     const { data, error } = await supabase
       .from('concerts')
@@ -93,7 +104,6 @@ export default function Dashboard() {
     }
   }
 
-  // FIKSET: Endret fra /user/ til /share/ for å matche din mappestruktur
   const handleShare = async () => {
     const shareUrl = `${window.location.origin}/share/${username?.replace(/\s+/g, '-').toLowerCase()}`;
     try {
@@ -248,15 +258,27 @@ export default function Dashboard() {
               <div className="rounded-3xl overflow-hidden border border-slate-800 h-[400px] shadow-2xl relative">
                 <GoogleMap
                   mapContainerStyle={{ width: '100%', height: '100%' }}
-                  center={{ lat: Number(concerts[0].lat), lng: Number(concerts[0].lng) }}
+                  center={mapCenter}
                   zoom={5}
                   options={mapOptions}
+                  onLoad={map => (mapRef.current = map)}
+                  onDragEnd={() => {
+                    if (mapRef.current) {
+                      const newCenter = mapRef.current.getCenter();
+                      if (newCenter) {
+                        setMapCenter({ lat: newCenter.lat(), lng: newCenter.lng() });
+                      }
+                    }
+                  }}
                 >
                   {concerts.map(concert => (
                     <MarkerF 
                       key={concert.id} 
                       position={{ lat: Number(concert.lat), lng: Number(concert.lng) }} 
-                      onClick={() => setSelectedConcert(concert)}
+                      onClick={() => {
+                        setMapCenter({ lat: Number(concert.lat), lng: Number(concert.lng) });
+                        setSelectedConcert(concert);
+                      }}
                       icon={{ 
                         path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z", 
                         fillColor: "#d946ef", fillOpacity: 1, strokeWeight: 2, strokeColor: "#ffffff", scale: 1.5, anchor: new google.maps.Point(12, 22)
@@ -264,47 +286,46 @@ export default function Dashboard() {
                     />
                   ))}
                   {selectedConcert && (
-  <InfoWindowF 
-    position={{ lat: Number(selectedConcert.lat), lng: Number(selectedConcert.lng) }} 
-    onCloseClick={() => setSelectedConcert(null)}
-  >
-    <div className="p-2 min-w-[200px] text-slate-900 bg-white">
-      {/* BILDE-FIKS HER: Sjekker om det er et array og henter bilde nr 1 */}
-      {Array.isArray(selectedConcert.event_img_url) && selectedConcert.event_img_url.length > 0 ? (
-        <div 
-          className="mb-3 rounded-lg overflow-hidden h-32 w-full bg-slate-50 cursor-pointer relative" 
-          onClick={() => setIsMapModalOpen(true)}
-        >
-          <img 
-            src={selectedConcert.event_img_url[0]} 
-            className="w-full h-full object-cover" 
-            alt={selectedConcert.artist_name} 
-          />
-          {selectedConcert.event_img_url.length > 1 && (
-            <div className="absolute top-2 right-2 bg-fuchsia-600 text-white text-[8px] px-1.5 py-0.5 rounded font-black">
-              +{selectedConcert.event_img_url.length - 1}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="mb-3 h-32 w-full bg-slate-100 rounded-lg flex items-center justify-center text-slate-300">
-          <Music size={24} />
-        </div>
-      )}
-      
-      <h3 className="font-black uppercase italic text-sm mb-1">{selectedConcert.artist_name}</h3>
-      <p className="text-[10px] font-bold text-fuchsia-600 uppercase">{selectedConcert.venue_name}</p>
-      
-      <p className="text-[9px] text-slate-500 mt-1 font-bold">
-        {new Date(selectedConcert.concert_date).toLocaleDateString('nb-NO', {
-          day: 'numeric',
-          month: 'short',
-          year: 'numeric'
-        })}
-      </p>
-    </div>
-  </InfoWindowF>
-)}
+                    <InfoWindowF 
+                      position={{ lat: Number(selectedConcert.lat), lng: Number(selectedConcert.lng) }} 
+                      onCloseClick={() => setSelectedConcert(null)}
+                    >
+                      <div className="p-2 min-w-[200px] text-slate-900 bg-white">
+                        {Array.isArray(selectedConcert.event_img_url) && selectedConcert.event_img_url.length > 0 ? (
+                          <div 
+                            className="mb-3 rounded-lg overflow-hidden h-32 w-full bg-slate-50 cursor-pointer relative" 
+                            onClick={() => setIsMapModalOpen(true)}
+                          >
+                            <img 
+                              src={selectedConcert.event_img_url[0]} 
+                              className="w-full h-full object-cover" 
+                              alt={selectedConcert.artist_name} 
+                            />
+                            {selectedConcert.event_img_url.length > 1 && (
+                              <div className="absolute top-2 right-2 bg-fuchsia-600 text-white text-[8px] px-1.5 py-0.5 rounded font-black">
+                                +{selectedConcert.event_img_url.length - 1}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="mb-3 h-32 w-full bg-slate-100 rounded-lg flex items-center justify-center text-slate-300">
+                            <Music size={24} />
+                          </div>
+                        )}
+                        
+                        <h3 className="font-black uppercase italic text-sm mb-1">{selectedConcert.artist_name}</h3>
+                        <p className="text-[10px] font-bold text-fuchsia-600 uppercase">{selectedConcert.venue_name}</p>
+                        
+                        <p className="text-[9px] text-slate-500 mt-1 font-bold">
+                          {new Date(selectedConcert.concert_date).toLocaleDateString('nb-NO', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                    </InfoWindowF>
+                  )}
                 </GoogleMap>
               </div>
             )}
@@ -326,7 +347,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* DELING VISNING - FIKSET URL TIL /share/ */}
+        {/* DELING VISNING */}
         {activeTab === 'share' && (
           <div className="max-w-xl mx-auto bg-slate-900 p-8 rounded-[2.5rem] border border-white/5 text-center animate-in fade-in zoom-in-95 duration-300">
             <div className="w-16 h-16 bg-fuchsia-500/10 rounded-2xl flex items-center justify-center text-fuchsia-500 mx-auto mb-6">
@@ -341,7 +362,13 @@ export default function Dashboard() {
                 <code className="text-xs text-fuchsia-400 font-mono truncate">
                   {typeof window !== 'undefined' ? `${window.location.origin}/share/${username?.replace(/\s+/g, '-').toLowerCase()}` : ''}
                 </code>
-                <Copy size={14} className="text-slate-600" />
+                <Copy size={14} className="text-slate-600 cursor-pointer hover:text-white" onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    const url = `${window.location.origin}/share/${username?.replace(/\s+/g, '-').toLowerCase()}`;
+                    navigator.clipboard.writeText(url);
+                    alert(locale === 'no' ? "Kopiert!" : "Copied!");
+                  }
+                }} />
               </div>
             </div>
 
