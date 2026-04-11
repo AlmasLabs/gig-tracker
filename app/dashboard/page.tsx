@@ -86,7 +86,7 @@ export default function Dashboard() {
     if (concerts.length > 0 && loading === false) {
       setMapCenter({ lat: Number(concerts[0].lat), lng: Number(concerts[0].lng) });
     }
-  }, [concerts.length]); // Kjører kun når antall konserter endres
+  }, [concerts.length, loading]); 
 
   const fetchConcerts = async (userId: string) => {
     const { data, error } = await supabase
@@ -105,6 +105,7 @@ export default function Dashboard() {
   }
 
   const handleShare = async () => {
+    if (typeof window === 'undefined') return;
     const shareUrl = `${window.location.origin}/share/${username?.replace(/\s+/g, '-').toLowerCase()}`;
     try {
       if (navigator.share) {
@@ -261,7 +262,7 @@ export default function Dashboard() {
                   center={mapCenter}
                   zoom={5}
                   options={mapOptions}
-                  onLoad={map => (mapRef.current = map)}
+                  onLoad={(map) => { mapRef.current = map; }}
                   onDragEnd={() => {
                     if (mapRef.current) {
                       const newCenter = mapRef.current.getCenter();
